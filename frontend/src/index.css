@@ -2,7 +2,160 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --primary: #0ea5e9;
+  --primary-dark: #0284c7;
+  --bg-clinical: #f8fafc;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --card-bg: #ffffff;
+  --card-muted: #f1f5f9;
+  --card-border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --accent: #38bdf8;
+}
+
+html.dark {
+  --bg-clinical: #0f172a;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --card-bg: #1e293b;
+  --card-muted: #0f172a;
+  --card-border: #334155;
+  --border-light: #1e293b;
+  --accent: #0ea5e9;
+}
+
 body {
-  background-color: #f8fafc;
-  font-family: 'Inter', sans-serif;
+  margin: 0;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-clinical);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-8 py-4 bg-sky-600 dark:bg-sky-500 text-white rounded-2xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-sky-200 dark:shadow-none flex items-center justify-center gap-2;
+  }
+
+  .btn-outline {
+    @apply px-8 py-4 bg-transparent border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-2xl font-bold transition-all hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-2;
+  }
+
+  .medical-card {
+    @apply bg-[var(--card-bg)] border border-[var(--card-border)] rounded-[2.5rem] shadow-sm p-8 transition-colors duration-300;
+  }
+
+  .step-indicator {
+    @apply w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all;
+  }
+
+  .gradient-heading {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-600 to-blue-500 font-black;
+  }
+}
+
+/* Scientific Grid background */
+.scientific-bg {
+  background-image: radial-gradient(var(--card-border) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.input-field {
+  @apply w-full px-6 py-4 rounded-2xl border outline-none focus:ring-2 focus:ring-sky-500 transition-all font-bold;
+  @apply bg-[var(--card-bg)] border-[var(--card-border)] text-[var(--text-main)];
+  @apply placeholder:text-slate-400 dark:placeholder:text-slate-500;
+
+  /* Force browser native controls to respect light/dark mode */
+  color-scheme: light;
+}
+
+html.dark .input-field {
+  color-scheme: dark;
+}
+
+/* Explicit date input fix for Chromium browsers */
+input[type="date"].input-field {
+  color-scheme: light;
+}
+
+html.dark input[type="date"].input-field {
+  color-scheme: dark;
+}
+
+/* Custom Checkbox/Radio for better accessibility */
+input[type="radio"] {
+  @apply w-5 h-5 accent-sky-500;
+}
+
+/* Animations for recording */
+@keyframes wave {
+  0% {
+    transform: scaleY(1);
+  }
+
+  50% {
+    transform: scaleY(2.5);
+  }
+
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+.wave-bar {
+  @apply w-1 bg-sky-500 rounded-full mx-0.5;
+  animation: wave 1s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.wave-bar:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.wave-bar:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.wave-bar:nth-child(5) {
+  animation-delay: 0.4s;
+}
+
+/* Traffic Lights (Standard CSS used to avoid Tailwind arbitrary value parsing issues with spaces) */
+.traffic-light {
+  @apply w-4 h-4 rounded-full;
+}
+
+.risk-low {
+  background-color: #22c55e;
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.5);
+}
+
+.risk-med {
+  background-color: #eab308;
+  box-shadow: 0 0 15px rgba(234, 179, 8, 0.5);
+}
+
+.risk-high {
+  background-color: #ef4444;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+}
+
+/* Scrollbar refine */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors;
 }

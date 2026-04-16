@@ -1,0 +1,3 @@
+supervised
+accuracy: 1.0000
+samples: 100

@@ -1,147 +1,367 @@
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.units import cm
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, Flowable, PageBreak
+)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib import colors
 import matplotlib.pyplot as plt
 import io
 import os
 from datetime import datetime
-import librosa
 import numpy as np
+import uuid
+import audio_processing
 
-# Register Vietnamese Font
+# --- 0. Font Setup ---
 try:
-    # Try different paths to find the font
-    font_path = os.path.join("backend", "fonts", "arial.ttf")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    font_path = os.path.join(base_dir, "fonts", "arial.ttf")
     if not os.path.exists(font_path):
-        font_path = os.path.join("fonts", "arial.ttf")
+        font_path = os.path.join(base_dir, "..", "fonts", "arial.ttf")
     if not os.path.exists(font_path):
-        # Fallback to absolute path if needed, or C:\Windows\Fonts
         font_path = r"C:\Windows\Fonts\arial.ttf"
-        
+
     pdfmetrics.registerFont(TTFont('Arial', font_path))
     FONT_NAME = 'Arial'
-    FONT_BOLD = 'Arial' # Arial usually includes bold, but we'll use same for now or register bold if needed
+    FONT_BOLD = 'Arial'
 except Exception as e:
     print(f"Warning: Could not load Arial font ({e}). Using Helvetica.")
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-def generate_medical_report(patient_info, result, audio_path, output_path):
-    c = canvas.Canvas(output_path, pagesize=A4)
-    width, height = A4
-    
-    # --- 1. Header (Chuyên nghiệp) ---
-    # Logo place holder (optional)
-    
-    c.setFont(FONT_BOLD, 22)
-    c.drawCentredString(width/2, height - 2*cm, "BÁO CÁO PHÂN TÍCH GIỌNG NÓI Y KHOA")
-    c.setFont(FONT_NAME, 10)
-    c.drawCentredString(width/2, height - 2.5*cm, "(HỆ THỐNG SÀNG LỌC ĐỘT QUỴ QUA GIỌNG NÓI - AI POWERED)")
-    
-    # Horizontal Line
-    c.setLineWidth(1)
-    c.line(2*cm, height - 3*cm, width - 2*cm, height - 3*cm)
-    
-    c.setFont(FONT_NAME, 10)
-    c.drawString(2*cm, height - 3.5*cm, f"Ngày tạo: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
-    c.drawString(2*cm, height - 4.0*cm, f"Mã hồ sơ: {os.path.basename(output_path).replace('.pdf', '')}")
+# --- 1. Custom Flowables ---
 
-    # --- 2. Patient Information (Thông tin Bệnh nhân) ---
-    y_pos = height - 5.5*cm
-    c.setFont(FONT_BOLD, 14)
-    c.setFillColorRGB(0, 0, 0.5) # Dark Blue
-    c.drawString(2*cm, y_pos, "1. THÔNG TIN BỆNH NHÂN")
-    c.setFillColorRGB(0, 0, 0)
-    
-    c.setFont(FONT_NAME, 12)
-    y_pos -= 0.8*cm
-    c.drawString(2.5*cm, y_pos, f"Họ và tên: {patient_info.get('name', 'N/A')}")
-    y_pos -= 0.7*cm
-    c.drawString(2.5*cm, y_pos, f"Ngày sinh: {patient_info.get('dob', 'N/A')}")
-    y_pos -= 0.7*cm
-    c.drawString(2.5*cm, y_pos, f"CCCD/CMND: {patient_info.get('cccd', 'N/A')}")
-    
-    # --- 3. AI Analysis Result (Kết quả Phân tích) ---
-    y_pos -= 1.5*cm
-    c.setFont(FONT_BOLD, 14)
-    c.setFillColorRGB(0, 0, 0.5)
-    c.drawString(2*cm, y_pos, "2. KẾT QUẢ PHÂN TÍCH AI")
-    c.setFillColorRGB(0, 0, 0)
-    
-    # Risk Assessment
-    y_pos -= 1.0*cm
-    risk_label = result['risk_assessment']
-    
-    if risk_label == 'High Risk':
-        risk_text = "NGUY CƠ CAO - CÓ DẤU HIỆU BẤT THƯỜNG"
-        details_text = "Hệ thống phát hiện các đặc trưng âm thanh không ổn định (Jitter/Shimmer cao), thường gặp ở người có vấn đề về thần kinh cơ hoặc từng bị đột quỵ."
-        color = (0.8, 0.1, 0.1) # Red
-    else:
-        risk_text = "NGUY CƠ THẤP - GIỌNG NÓI BÌNH THƯỜNG"
-        details_text = "Các chỉ số âm thanh nằm trong giới hạn bình thường. Không phát hiện dấu hiệu rối loạn vận ngôn rõ ràng."
-        color = (0.1, 0.6, 0.1) # Green
+class RiskIndicator(Flowable):
+    """
+    Draws the visual risk dots (circles) in a Platypus story.
+    """
+    def __init__(self, risk_level="NORMAL"):
+        Flowable.__init__(self)
+        self.risk_level = risk_level
+        self.width = 16 * cm
+        self.height = 1.2 * cm
+
+    def draw(self):
+        canvas = self.canv
+        circle_x = 0.5 * cm
+        y_center = 0.6 * cm
+        radius = 0.35 * cm
+        gap = 1.1 * cm
+
+        # Label and details based on risk
+        risk_color = colors.green
+        risk_text_vn = "MỨC ĐỘ SAI LỆCH: THẤP"
+        fill_count = 1
         
-    c.setFont(FONT_BOLD, 12)
-    c.drawString(2.5*cm, y_pos, "Chẩn đoán Sơ bộ:")
-    
-    c.setFont(FONT_BOLD, 14)
-    c.setFillColorRGB(*color)
-    c.drawString(6.5*cm, y_pos, risk_text)
-    c.setFillColorRGB(0, 0, 0) # Reset
-    
-    y_pos -= 0.8*cm
-    c.setFont(FONT_NAME, 12)
-    c.drawString(2.5*cm, y_pos, f"Độ tin cậy (Confidence): {result['confidence_score']*100:.1f}%")
-    
-    y_pos -= 0.8*cm
-    c.drawString(2.5*cm, y_pos, "Chi tiết lâm sàng:")
-    c.setFont(FONT_NAME, 11)
-    # Wrap text if needed, but for now just print
-    c.drawString(2.5*cm, y_pos - 0.5*cm, details_text)
+        if self.risk_level == "HIGH":
+            risk_color = colors.red
+            risk_text_vn = "MỨC ĐỘ SAI LỆCH: CAO"
+            fill_count = 4
+        elif self.risk_level == "MEDIUM":
+            risk_color = colors.orange
+            risk_text_vn = "MỨC ĐỘ SAI LỆCH: TRUNG BÌNH"
+            fill_count = 2
 
-    # --- 4. Waveform Visualization (Biểu đồ Sóng âm) ---
-    y_pos -= 3*cm
-    c.setFont(FONT_BOLD, 14)
-    c.setFillColorRGB(0, 0, 0.5)
-    c.drawString(2*cm, y_pos, "3. BIỂU ĐỒ SÓNG ÂM (VOICE WAVEFORM)")
-    c.setFillColorRGB(0, 0, 0)
-    
+        # Draw 4 circles
+        for i in range(4):
+            canvas.setLineWidth(1)
+            canvas.setStrokeColor(colors.black)
+            if i < fill_count:
+                canvas.setFillColor(risk_color)
+                canvas.circle(circle_x + i * gap, y_center, radius, stroke=1, fill=1)
+            else:
+                canvas.setFillColor(colors.white)
+                canvas.circle(circle_x + i * gap, y_center, radius, stroke=1, fill=0)
+
+        # Draw labels
+        canvas.setFont(FONT_BOLD, 14)
+        canvas.setFillColor(risk_color)
+        canvas.drawString(circle_x + 4.5 * cm, y_center - 0.1 * cm, risk_text_vn)
+        
+        canvas.setFont(FONT_NAME, 9)
+        canvas.setFillColor(colors.black)
+        canvas.drawString(circle_x + 4.5 * cm, y_center - 0.5 * cm, f"(Technical Risk Level: {self.risk_level})")
+
+# --- 2. Chart Creation Helpers (Returning BytesIO) ---
+
+def create_waveform_plot(audio_path):
     try:
-        y, sr = librosa.load(audio_path, sr=16000)
-        plt.figure(figsize=(8, 3))
-        plt.plot(np.linspace(0, len(y)/sr, len(y)), y, alpha=0.7, color='teal')
-        plt.title("Phân tích Biên độ theo Thời gian", fontsize=10)
-        plt.xlabel("Thời gian (giây)", fontsize=8)
-        plt.ylabel("Biên độ", fontsize=8)
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        
-        img_buf = io.BytesIO()
-        plt.savefig(img_buf, format='png', dpi=150)
-        img_buf.seek(0)
-        plt.close()
-        
-        img = ImageReader(img_buf)
-        c.drawImage(img, 2*cm, y_pos - 8*cm, width=17*cm, height=6.5*cm)
-    except Exception as e:
-        c.setFont(FONT_NAME, 10)
-        c.drawString(2.5*cm, y_pos - 1*cm, f"Không thể tạo biểu đồ: {str(e)}")
+        y, sr = audio_processing.load_audio(audio_path)
+        if y is None: return None
+        if len(y) > 10 * sr: y = y[:10*sr]
+        fig, ax = plt.subplots(figsize=(8, 2))
+        ax.plot(np.linspace(0, len(y)/sr, len(y)), y, color='#0088cc', linewidth=0.5)
+        ax.set_axis_off()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight', transparent=True, dpi=150)
+        buf.seek(0)
+        plt.close(fig)
+        return buf
+    except:
+        return None
 
-    # --- 5. Footer (Chân trang) ---
-    c.setLineWidth(0.5)
-    c.line(2*cm, 2.5*cm, width - 2*cm, 2.5*cm)
+def create_radar_chart(details):
+    labels = []
+    values = []
+    key_metrics = ["jitter_local", "shimmer_local", "hnr", "speech_rate", "mean_f0"]
     
-    c.setFont(FONT_NAME, 8)
-    c.setFillColorRGB(0.4, 0.4, 0.4)
-    disclaimer = "LƯU Ý QUAN TRỌNG: Báo cáo này được tạo tự động bởi AI nhằm mục đích sàng lọc sớm."
-    disclaimer2 = "Kết quả KHÔNG thay thế cho chẩn đoán của bác sĩ chuyên khoa. Vui lòng đến cơ sở y tế nếu có nghi ngờ."
-    c.drawCentredString(width/2, 2*cm, disclaimer)
-    c.drawCentredString(width/2, 1.6*cm, disclaimer2)
+    for key in key_metrics:
+        if key in details:
+            item = details[key]
+            deviation = item.get('deviation_level', 0.0)
+            norm_val = item.get('norm_val', min(deviation / 3.0, 1.0))
+            labels.append(key.upper())
+            values.append(norm_val)
     
-    c.setFont(FONT_NAME, 8)
-    c.drawCentredString(width/2, 1.0*cm, "Developed by Nguyen Duy Quang | Hotline: 0795277227")
+    if not values or len(values) < 3: return None
+    values = np.concatenate((values, [values[0]]))
+    angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
+    angles = np.concatenate((angles, [angles[0]]))
 
-    c.save()
+    fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(polar=True))
+    ax.fill(angles, values, color='red', alpha=0.25)
+    ax.plot(angles, values, color='red', linewidth=2)
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(labels, fontsize=7)
+    ax.set_yticklabels([])
+    ax.set_title("Deviation Profile", size=9, y=1.1)
+    
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight', transparent=True, dpi=150)
+    buf.seek(0)
+    plt.close(fig)
+    return buf
+
+def create_zscore_chart(details):
+    labels = []
+    z_scores = []
+    colors_list = []
+    
+    for k, v in details.items():
+        if k in ["jitter_local", "shimmer_local", "hnr", "speech_rate", "mean_f0", "loudness_db"]:
+            z = v.get('z_score', 0)
+            labels.append(k)
+            z_scores.append(z)
+            if abs(z) > 2: colors_list.append('#d32f2f')
+            elif abs(z) > 1: colors_list.append('#f57c00')
+            else: colors_list.append('#388e3c')
+
+    if not z_scores: return None
+    fig, ax = plt.subplots(figsize=(4, 3))
+    y_pos = np.arange(len(labels))
+    ax.barh(y_pos, z_scores, align='center', color=colors_list, alpha=0.7)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(labels, fontsize=7)
+    ax.invert_yaxis()
+    ax.set_title('Feature Z-Scores', fontsize=9)
+    ax.axvline(x=0, color='black', linewidth=0.8)
+    ax.set_xlim([-2.5, 2.5])
+    ax.set_xlabel('Z-Score (Deviation)', fontsize=7)
+    
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight', transparent=True, dpi=150)
+    buf.seek(0)
+    plt.close(fig)
+    return buf
+
+# --- 3. Main Report Generation ---
+
+def generate_medical_report(patient_info, result, audio_path, output_path, metrics=None):
+    if metrics is None: metrics = {}
+    
+    # Doc Template Setup
+    doc = SimpleDocTemplate(
+        output_path, 
+        pagesize=A4,
+        rightMargin=1.5*cm, leftMargin=1.5*cm,
+        topMargin=1.5*cm, bottomMargin=1.5*cm
+    )
+    
+    styles = getSampleStyleSheet()
+    # Custom Styles
+    styles.add(ParagraphStyle(name='CenterTitle', fontName=FONT_BOLD, fontSize=18, alignment=TA_CENTER, spaceAfter=10))
+    styles.add(ParagraphStyle(name='CenterSub', fontName=FONT_NAME, fontSize=10, alignment=TA_CENTER, spaceAfter=20))
+    styles.add(ParagraphStyle(name='SectionHeader', fontName=FONT_BOLD, fontSize=12, textColor=colors.HexColor('#1a5a96'), spaceBefore=15, spaceAfter=10))
+    styles.add(ParagraphStyle(name='MetricLabel', fontName=FONT_BOLD, fontSize=10))
+    styles.add(ParagraphStyle(name='NormalSmall', fontName=FONT_NAME, fontSize=9))
+    styles.add(ParagraphStyle(name='IDHeader', fontName=FONT_NAME, fontSize=8, alignment=TA_RIGHT))
+    styles.add(ParagraphStyle(name='AlertText', fontName=FONT_NAME, fontSize=8, textColor=colors.red))
+    styles.add(ParagraphStyle(name='FooterText', fontName=FONT_NAME, fontSize=7, textColor=colors.grey))
+
+    story = []
+
+    # --- Header Information ---
+    meta = result.get('metadata', {})
+    analysis_id = meta.get('analysis_id', result.get('session_id', str(uuid.uuid4())[:8]))
+    date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    story.append(Paragraph(f"ID: {analysis_id}", styles['IDHeader']))
+    story.append(Paragraph(f"Ngày: {date_str}", styles['IDHeader']))
+    story.append(Spacer(1, 0.5*cm))
+    
+    story.append(Paragraph("AI SPEECH ANALYTICS", styles['CenterTitle']))
+    story.append(Paragraph("(Báo Cáo Kết Quả Sàng Lọc Từ Hệ Thống AI)", styles['CenterSub']))
+
+    # --- Section I: Patient & Quality ---
+    story.append(Paragraph("I. THÔNG TIN & CHẤT LƯỢNG MẪU (PATIENT & QUALITY)", styles['SectionHeader']))
+    
+    name = patient_info.get('name', 'N/A')
+    age = patient_info.get('age', 'N/A')
+    gender = patient_info.get('gender', 'N/A')
+    notes = patient_info.get('health_notes', 'N/A')
+    
+    patient_table_data = [
+        [Paragraph(f"<b>Họ tên:</b> {name}", styles['Normal']), Paragraph(f"<b>Tuổi:</b> {age}", styles['Normal']), Paragraph(f"<b>Giới tính:</b> {gender}", styles['Normal'])]
+    ]
+    pt_table = Table(patient_table_data, colWidths=[6.5*cm, 4*cm, 4*cm])
+    pt_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'LEFT'), ('LEFTPADDING', (0,0), (-1,-1), 0)]))
+    story.append(pt_table)
+    
+    story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph(f"<b>Ghi chú lâm sàng:</b> {notes}", styles['Normal']))
+    
+    snr = metrics.get('snr', 0)
+    vad = metrics.get('vad_ratio', 0)
+    clip = metrics.get('clipping_ratio', 0)
+    story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph(f"SNR: {snr:.2f}dB | VAD Ratio: {vad:.2f} | Clipping: {clip:.2f}", styles['NormalSmall']))
+
+    # --- Section II: Screening Summary ---
+    story.append(Paragraph("II. TỔNG HỢP SÀNG LỌC (SCREENING SUMMARY)", styles['SectionHeader']))
+    
+    sai = result.get('sai_score', 0)
+    risk = result.get('final_risk_level', 'UNKNOWN')
+    conf = result.get('confidence_score', 0)
+    
+    story.append(Paragraph(f"Chỉ số Sai lệch Âm thanh (SAI): <b>{sai}/100</b>", styles['Normal']))
+    story.append(Spacer(1, 0.4*cm))
+    
+    # Custom Risk Indicator Circle Plot
+    story.append(RiskIndicator(risk))
+    story.append(Spacer(1, 0.5*cm))
+    
+    story.append(Paragraph(f"Độ tin cậy (Confidence Score): {conf*100:.1f}%", styles['Normal']))
+    
+    # AI Insights
+    story.append(Spacer(1, 0.5*cm))
+    story.append(Paragraph("<b>KẾT LUẬN CHI TIẾT & LỜI KHUYÊN (AI INSIGHTS)</b>", styles['Normal']))
+    
+    observations = result.get('observations', [])
+    for obs in observations:
+        story.append(Paragraph(f"• {obs}", styles['NormalSmall']))
+    
+    advice = result.get('advice', [])
+    if advice:
+        story.append(Spacer(1, 0.2*cm))
+        story.append(Paragraph("<b>• Khuyến nghị hành động:</b>", styles['NormalSmall']))
+        for adv in advice:
+            story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;- {adv}", styles['NormalSmall']))
+            
+    explanation = result.get('explanation_text', result.get('explanation', ''))
+    story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph(f"<i>Hệ thống phát âm bị ảnh hưởng: {explanation}</i>", styles['NormalSmall']))
+
+    # --- Section III: Waveform ---
+    story.append(Paragraph("III. BIỂU ĐỒ SÓNG ÂM (WAVEFORM)", styles['SectionHeader']))
+    wave_buf = create_waveform_plot(audio_path)
+    if wave_buf:
+        img = Image(wave_buf, width=16*cm, height=3.5*cm)
+        # Wrap image in a border table
+        img_table = Table([[img]], colWidths=[16.5*cm])
+        img_table.setStyle(TableStyle([('BOX', (0,0), (-1,-1), 0.5, colors.black), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+        story.append(img_table)
+
+    # --- Section IV: Clinical Features ---
+    story.append(Paragraph("IV. CHI TIẾT 54 CHỈ SỐ LÂM SÀNG (54 CLINICAL BIOMARKERS)", styles['SectionHeader']))
+    story.append(Paragraph("<i>Bảng số liệu chi tiết trích xuất từ giọng nói giúp bác sĩ đánh giá cơ sở bệnh lý.</i>", styles['NormalSmall']))
+    story.append(Spacer(1, 0.4*cm))
+    
+    details = result.get('details', result.get('detailed_metrics', {}))
+    if not isinstance(details, dict): details = {}
+    
+    table_data = [["Chỉ số (Feature)", "Giá trị", "Tham chiếu", "Z-Score", "Trạng thái"]]
+    status_map = {
+        "NORMAL": "Bình thường", 
+        "NEAR_BOUNDARY": "Ranh giới", 
+        "DEVIATED": "Lệch nhẹ", 
+        "SIGNIFICANTLY_DEVIATED": "Lệch nhiều"
+    }
+
+    for k, v in details.items():
+        val = v.get('value', 0)
+        z = v.get('z_score', 0)
+        st_raw = v.get('status', 'NORMAL')
+        st = status_map.get(st_raw, st_raw)
+        ref = v.get('ref_display', 'Typical')
+        label = v.get('label', k)
+        
+        # Color coding for status
+        st_para = Paragraph(st, styles['NormalSmall'])
+        if st_raw in ["DEVIATED", "SIGNIFICANTLY_DEVIATED"]:
+            st_para = Paragraph(f"<font color='red'>{st}</font>", styles['NormalSmall'])
+            
+        table_data.append([
+            Paragraph(label, styles['NormalSmall']), 
+            f"{val:.4f}", 
+            ref, 
+            f"{z:.2f}", 
+            st_para
+        ])
+        
+    # Col widths: Name, Value, Ref, Z, Status
+    ft_table = Table(table_data, colWidths=[5*cm, 3*cm, 3.5*cm, 2.5*cm, 3.5*cm], repeatRows=1)
+    ft_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c3e50')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('FONTNAME', (0,0), (-1,0), FONT_BOLD),
+        ('FONTSIZE', (0,0), (-1,0), 9),
+        ('BOTTOMPADDING', (0,0), (-1,0), 8),
+        ('TOPPADDING', (0,0), (-1,0), 8),
+    ]))
+    story.append(ft_table)
+
+    # --- Section V: Visual Analytics ---
+    story.append(Paragraph("V. PHÂN TÍCH TRỰC QUAN (VISUAL ANALYTICS)", styles['SectionHeader']))
+    
+    radar_buf = create_radar_chart(details)
+    zchart_buf = create_zscore_chart(details)
+    
+    visuals_data = []
+    row = []
+    if radar_buf:
+        row.append(Image(radar_buf, width=8*cm, height=7*cm))
+    if zchart_buf:
+        row.append(Image(zchart_buf, width=8*cm, height=6*cm))
+    
+    if row:
+        visuals_data.append(row)
+        v_table = Table(visuals_data, colWidths=[8.5*cm, 8.5*cm])
+        v_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+        story.append(v_table)
+
+    # --- Footer ---
+    story.append(Spacer(1, 2*cm))
+    story.append(Paragraph("<hr/>", styles['Normal'])) # Horizontal line hack
+    story.append(Paragraph("<b>THÔNG TIN KỸ THUẬT (METADATA):</b>", styles['NormalSmall']))
+    
+    m_ver = meta.get('model_version', result.get('model_version', '1.0'))
+    f_set = meta.get('feature_set_version', result.get('feature_set_version', 'N/A'))
+    norm = meta.get('normalization_method', result.get('normalization_method', 'N/A'))
+    
+    story.append(Paragraph(f"Model: {m_ver} | Features: {f_set} | Normalization: {norm}", styles['FooterText']))
+    story.append(Spacer(1, 0.5*cm))
+    story.append(Paragraph("SẢN PHẨM: AI SPEECH ANALYTICS (PHIÊN BẢN NGHIÊN CỨU 2026)", styles['MetricLabel']))
+    story.append(Spacer(1, 0.5*cm))
+    story.append(Paragraph("<i>Báo cáo này chỉ mang tính chất sàng lọc và nghiên cứu, không phải chẩn đoán y khoa. Vui lòng tham khảo ý kiến chuyên gia y tế để được đánh giá chính thức.</i>", styles['AlertText']))
+
+    # Build PDF
+    doc.build(story)
     return output_path

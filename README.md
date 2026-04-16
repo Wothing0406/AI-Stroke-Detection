@@ -1,89 +1,112 @@
-# HỆ THỐNG TẦM SOÁT SỚM NGUY CƠ ĐỘT QUỴ - AI STROKE DETECTION
-## ỨNG DỤNG KIẾN TRÚC HYBRID AI VÀ PHÂN TÍCH CHỈ SỐ SINH HỌC GIỌNG NÓI LÂM SÀNG
+# 🧠 AI Stroke Detection System
+## Ứng dụng Kiến trúc Hybrid AI và Phân tích Digital Biomarkers Giọng nói
 
-> **Tác giả**: Nguyễn Duy Quang  
-> **Lĩnh vực**: Phần mềm hệ thống (Trí tuệ nhân tạo Y sinh (Biomedical AI) - Công nghệ hỗ trợ sức khỏe  )
-> **Phiên bản**: 2.0 (Scientific Version)
+[![Docker](https://img.shields.io/badge/Docker-enabled-blue.svg)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/Status-Scientific--v2.0-orange.svg)]()
 
----
-
-## 📑 MỤC LỤC
-1.  [**Vấn đề nghiên cứu**](#1-vấn-đề-nghiên-cứu)
-    - [a. Vấn đề cần giải quyết hiện nay](#a-vấn-đề-cần-giải-quyết-hiện-nay)
-    - [b. Tiêu chí cho giải pháp tối ưu](#b-tiêu-chí-cho-giải-pháp-tối-ưu)
-2.  [**Thiết kế và Phương pháp**](#2-thiết-kế-và-phương-pháp)
-    - [a. Quá trình nghiên cứu & Đặc trưng lâm sàng (Evidence)](#a-quá-trình-nghiên-cứu--đặc-trưng-lâm-sàng-evidence)
-    - [b. Kiến trúc Hybrid AI Consensus Engine](#b-kiến-trúc-hybrid-ai-consensus-engine)
-3.  [**Thực hiện: Chế tạo và Kiểm tra**](#3-thực-hiện-chế-tạo-và-kiểm-tra)
-    - [a. Quy trình công nghệ & Tính năng độc phá](#a-quy-trình-công-nghệ--tính-năng-độc-phá)
-    - [b. Chứng minh khả thi & Thực nghiệp](#b-chứng-minh-khả-thi--thực-nghiệp)
-    - [c. Kết quả sản phẩm & Báo cáo y khoa](#c-kết-quả-sản-phẩm--báo-cáo-y-khoa)
-4.  [**Kết luận và Hướng phát triển**](#4-kết-luận-và-hướng-phát-triển)
+Hệ thống tầm soát sớm nguy cơ đột quỵ thông qua phân tích 54 chỉ số sinh học giọng nói (Digital Biomarkers). Sử dụng mô hình Hybrid AI để đạt được độ chính xác khoa học và có khả năng tự triển khai (Self-hosting) thông qua Docker.
 
 ---
 
-## 1. VẤN ĐỀ NGHIÊN CỨU
-
-### a. Vấn đề cần giải quyết hiện nay
-Đột quỵ là kẻ giết người thầm lặng với "Thời gian vàng" cực kỳ ngắn. Hiện nay, việc tầm soát sơ bộ tại cộng đồng gặp 3 rào cản lớn:
-- **Thiếu công cụ tại nhà**: Người dùng chỉ nhập viện khi triệu chứng đã rõ ràng (đã muộn).
-- **Sai lệch do lão hóa**: Các âm thanh giọng nói của người già thường bị đánh đồng với bệnh lý, gây "Dương tính giả" cao.
-- **Tính chính xác**: Các App giải trí không thể phân tích sâu các chỉ số y sinh (Biomarkers).
-
-### b. Tiêu chí cho giải pháp tối ưu
-**AI Stroke Detection** được thiết kế để trở thành lớp phòng ngự đầu tiên với 3 tiêu chuẩn:
-- **Độ nhạy cực cao**: Phát hiện các biến đổi micro-vocal.
-- **Tính cá nhân hóa**: Hiệu chỉnh kết quả dựa trên sinh lý độ tuổi.
-- **Báo cáo chuyên nghiệp**: Xuất dữ liệu theo định dạng y khoa chuẩn CMS/A4.
+## 📑 Mục lục
+1. [Giới thiệu & Cơ sở Khoa học](#giới-thiệu--cơ-sở-khoa-học)
+2. [Tính năng Chính](#tính-năng-chính)
+3. [Công nghệ Sử dụng](#công-nghệ-sử-dụng)
+4. [Hướng dẫn Cài đặt (Docker)](#hướng-dẫn-cài-đặt)
+5. [Tự Treo Host với Cloudflare Tunnel](#tự-treo-host-với-cloudflare-tunnel)
+6. [Cấu trúc Dự án](#cấu-trúc-dự-án)
+7. [Tác giả](#tác-giả)
 
 ---
 
-## 2. THIẾT KẾ VÀ PHƯƠNG PHÁP
+## 🔬 Giới thiệu & Cơ sở Khoa học
 
-### a. Quá trình nghiên cứu & Đặc trưng lâm sàng (Evidence)
-Hệ thống không dựa trên từ ngữ (NLP) mà dựa trên **Vật lý âm thanh**. Chúng tôi trích xuất **Vector đặc trưng 54 chiều (Vocal Biomarkers)**:
-- **VOT (Voice Onset Time)**: Đo lường sự phối hợp thần kinh-cơ. Khoảng cách bình thường 20-80ms, đột quỵ thường >100ms hoặc <10ms.
-- **Formant Stability (F1, F2, F3)**: Đánh giá khả năng điều khiển lưỡi và hàm. Độ ổn định < 60% là chỉ số báo động.
-- **Jitter & Shimmer**: Dao động tần số và biên độ. Mức độ bất thường khi Jitter > 1.04% (đối với người trẻ) và > 1.4% (đối với người già).
-- **Rhythmicity**: Các khoảng dừng (Pause frequency) và tốc độ phát âm (Articulation rate).
+Dự án này tập trung vào việc nhận diện các biến đổi vi mô trong giọng nói (micro-vocal changes) mà tai người thường không nhận ra, nhưng lại là dấu hiệu sớm của các tổn thương thần kinh liên quan đến đột quỵ.
 
-### b. Kiến trúc Hybrid AI Consensus Engine
-Đây là "trái tim" của sản phẩm, kết hợp hai trường phái Học máy:
-1.  **Isolation Forest (Unsupervised)**: Lọc dị biệt. Học từ 2000+ mẫu giọng nói chuẩn để tạo ra "Bản đồ vùng xanh" (Normal boundary).
-2.  **Random Forest (Supervised)**: Phân loại bệnh lý. Huấn luyện bằng các tập đặc trưng lâm sàng để nhận diện dấu hiệu đột quỵ.
-3.  **Hệ đồng thuận (Consensus Logic)**: Chỉ báo nguy cơ cao khi cả hai mô hình cùng xác nhận, giảm 40% tỷ lệ báo động sai so với mô hình đơn lẻ.
+- **54 Biomarkers**: Trích xuất các chỉ số về Pitch Stability (Jitter), Amplitude Dynamics (Shimmer), Harmonic Structure (HNR/CPP), và Spectral Shape (MFCC).
+- **Hybrid AI Engine**: Sự kết hợp giữa Isolation Forest (phát hiện dị thường) và Random Forest (phân loại bệnh lý).
+- **Age-Based Calibration**: Tự động hiệu chuẩn ngưỡng cảnh báo theo độ tuổi để giảm thiểu tỷ lệ dương tính giả ở người cao tuổi.
 
 ---
 
-## 3. THỰC HIỆN: CHẾ TẠO VÀ KIỂM TRA
+## ✨ Tính năng Chính
 
-### a. Quy trình công nghệ & Tính năng đột phá
-**AI Stroke Detection** tích hợp các tính năng chuẩn y khoa:
-- **Age-Based Bio-Calibration**: Thuật toán tự động hiệu chỉnh ngưỡng (Threshold) theo 4 nhóm tuổi, đảm bảo công bằng cho người cao tuổi.
-- **Real-time VAD**: Tự động lọc nhiễu nền và chỉ phân tích khi có giọng nói thực sự.
-- **Sanitized Data Management**: Đóng gói hồ sơ ZIP định danh `{Tên}_{Ngày}` hỗ trợ Unicode tiếng Việt hoàn chỉnh.
-
-### b. Chứng minh khả thi & Thực nghiệp
-Dự án đã trải qua các bài kiểm định khắt khe:
-- **Mô phỏng lâm sàng**: Thử nghiệm trên các kịch bản nói lắp, slurred speech (nói đớ) giả lập.
-- **Hiệu năng**: Thời gian phân tích trung bình **1.8 giây/mẫu**.
-- **Tính ổn định**: Chạy mượt mà trên môi trường Windows Server (FastAPI) và Web Browser.
-
-### c. Kết quả sản phẩm & Báo cáo y khoa
-Sản phẩm đầu ra cuối cùng là một **Báo cáo Phân tích Y khoa (A4 PDF)**:
-- Có biểu đồ hình ảnh âm thanh (Waveform).
-- Bảng thông số chi tiết (F0, VOT, Jitter, Shimmer,...).
-- Kết luận AI minh bạch (Technical Notes) nêu rõ mô hình nào đã được áp dụng.
+- 🎙️ **Thu âm chuẩn hóa**: Quy trình 3 bước (Nguyên âm, Đếm số, Đọc câu) để thu thập dữ liệu âm học đa chiều.
+- 📊 **Phân tích thời gian thực**: Trực quan hóa phổ âm thanh và chỉ số rủi ro (SAI Score) ngay khi thu âm.
+- 📄 **Báo cáo Y khoa PDF**: Tự động xuất báo cáo chuyên nghiệp kèm biểu đồ Radar so sánh với chỉ số chuẩn.
+- ☁️ **Self-hosting Ready**: Được đóng gói toàn bộ vào Docker, dễ dàng triển khai lên máy chủ cá nhân hoặc VPS.
 
 ---
 
-## 4. KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
+## 🛠️ Công nghệ Sử dụng
 
-- **Kết luận**: **AI Stroke Detection** là giải pháp tiên phong trong việc bình dân hóa công nghệ tầm soát đột quỵ. Nó chuyển đổi chiếc điện thoại thông minh thành một máy phân tích chỉ số sinh học giọng nói đầy quyền năng.
-- **Hướng phát triển**:
-  - Triển khai **Cloud-based Database** để lưu trữ lịch sử sức khỏe trọn đời.
-  - Tích hợp **AI chẩn đoán hình ảnh vân lưỡi** để tăng độ chính xác lên 99%.
-  - Hỗ trợ đa ngôn ngữ và các phương ngữ vùng miền.
+### Frontend
+- **React 18 + Vite**: Giao diện Dashboard hiện đại, mượt mà.
+- **Tailwind CSS**: Thiết kế responsive, UI/UX chuẩn y khoa.
+- **Lucide Icons & Framer Motion**: Iconography và micro-animations cao cấp.
+
+### Backend
+- **FastAPI (Python 3.9)**: API hiệu năng cao với xử lý bất đồng bộ.
+- **Librosa & DSP**: Xử lý tín hiệu số và trích xuất đặc trưng âm học.
+- **Scikit-learn**: Vận hành mô hình Hybrid AI.
+- **ReportLab**: Tạo báo cáo PDF tự động.
 
 ---
-*Dự án thực hiện bởi Nguyễn Duy Quang | 2026*
+
+## 🚀 Hướng dẫn Cài đặt (Docker)
+
+Để chạy dự án này trên máy tính của bạn, hãy đảm bảo bạn đã cài đặt **Docker** và **Docker Compose**.
+
+1. **Clone repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd dotquy
+   ```
+
+2. **Chạy hệ thống**:
+   ```bash
+   docker compose up --build
+   ```
+
+3. **Truy cập**:
+   - Giao diện người dùng: [http://localhost](http://localhost)
+   - API Backend: [http://localhost:8000](http://localhost:8000)
+
+---
+
+## 🌐 Tự Treo Host với Cloudflare Tunnel
+
+Hệ thống đã tích hợp sẵn **Cloudfare Tunnel**, giúp bạn có một link công khai cho mọi người sử dụng hoàn toàn miễn phí mà không cần mở port modem.
+
+1. Sau khi chạy `docker compose up`, hãy kiểm tra log của container `tunnel`:
+   ```bash
+   docker compose logs -f tunnel
+   ```
+2. Tìm dòng chữ có dạng: `https://your-unique-name.trycloudflare.com`.
+3. Chia sẻ đường link này cho mọi người. Bất kỳ ai cũng có thể truy cập hệ thống đang chạy trên máy của bạn thông qua link này với HTTPS bảo mật.
+
+---
+
+## 📁 Cấu trúc Dự án
+
+```text
+.
+├── backend/            # FastAPI Backend & AI Logic
+├── frontend/           # React Dashboard
+├── docker-compose.yml  # Orchestration
+├── README.md           # Documentation
+└── .gitignore          # Git exclusion rules
+```
+
+---
+
+## 👤 Tác giả
+
+**Nguyễn Duy Quang**  
+*Lĩnh vực: Biomedical AI & Healthcare Technology*  
+*Năm thực hiện: 2026*
+
+---
+> [!NOTE]
+> Kết quả từ hệ thống này chỉ mang tính chất tầm soát sớm và tham khảo khoa học, không thay đổi các chẩn đoán y khoa chính thống từ bác sĩ chuyên môn.
