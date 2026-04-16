@@ -1,112 +1,98 @@
-# 🧠 AI Stroke Detection System
-## Ứng dụng Kiến trúc Hybrid AI và Phân tích Digital Biomarkers Giọng nói
+# 🧠 HỆ THỐNG TẦM SOÁT SỚM NGUY CƠ ĐỘT QUỴ - AI STROKE DETECTION
+## ỨNG DỤNG KIẾN TRÚC HYBRID AI VÀ PHÂN TÍCH CHỈ SỐ SINH HỌC GIỌNG NÓI LÂM SÀNG
 
 [![Docker](https://img.shields.io/badge/Docker-enabled-blue.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Scientific--v2.0-orange.svg)]()
 
-Hệ thống tầm soát sớm nguy cơ đột quỵ thông qua phân tích 54 chỉ số sinh học giọng nói (Digital Biomarkers). Sử dụng mô hình Hybrid AI để đạt được độ chính xác khoa học và có khả năng tự triển khai (Self-hosting) thông qua Docker.
+> **Tác giả**: Nguyễn Duy Quang  
+> **Lĩnh vực**: Phần mềm hệ thống (Trí tuệ nhân tạo Y sinh (Biomedical AI) - Công nghệ hỗ trợ sức khỏe)  
+> **Phiên bản**: 2.0 (Scientific Version)
+> **Trạng thái**: Research & Development
+> **Cấp độ**: Chuyên nghiệp / Khoa học (Scientific Excellence Layer)
 
 ---
 
-## 📑 Mục lục
-1. [Giới thiệu & Cơ sở Khoa học](#giới-thiệu--cơ-sở-khoa-học)
-2. [Tính năng Chính](#tính-năng-chính)
-3. [Công nghệ Sử dụng](#công-nghệ-sử-dụng)
-4. [Hướng dẫn Cài đặt (Docker)](#hướng-dẫn-cài-đặt)
-5. [Tự Treo Host với Cloudflare Tunnel](#tự-treo-host-với-cloudflare-tunnel)
-6. [Cấu trúc Dự án](#cấu-trúc-dự-án)
-7. [Tác giả](#tác-giả)
+## 📑 MỤC LỤC
+1. [**Vấn đề nghiên cứu và Bối cảnh Y khoa**](#1-vấn-đề-nghiên-cứu-và-bối-cảnh-y-khoa)
+2. [**Thiết kế hệ thống và Phương pháp luận**](#2-thiết-kế-hệ-thống-và-phương-pháp-luận)
+3. [**Thực hiện: Chế tạo và Kiểm tra**](#3-thực-hiện-chế-tạo-và-kiểm-tra)
+    - a. Đặc tả kỹ thuật và Stack Công nghệ (Modern Micro-Acoustic Stack)
+    - b. **Hướng dẫn Cài đặt & Triển khai Docker**
+    - c. **Tự Treo Host với Cloudflare Tunnel**
+    - d. Quy trình xử lý tín hiệu (Medical Signal Processing Pipeline)
+    - e. Hệ thống Báo cáo Y khoa Chuyên nghiệp (Automated A4 Clinical PDF)
+4. [**Kết luận và Hướng phát triển chiến lược**](#4-kết-luận-và-hướng-phát-triển-chiến-lược)
 
 ---
 
-## 🔬 Giới thiệu & Cơ sở Khoa học
+## 1. VẤN ĐỀ NGHIÊN CỨU VÀ BỐI CẢNH Y KHOA
 
-Dự án này tập trung vào việc nhận diện các biến đổi vi mô trong giọng nói (micro-vocal changes) mà tai người thường không nhận ra, nhưng lại là dấu hiệu sớm của các tổn thương thần kinh liên quan đến đột quỵ.
+### a. Thách thức trong tầm soát đột quỵ tại cộng đồng
+Đột quỵ (Stroke) là một tình trạng cấp cứu y khoa nghiêm trọng xảy ra khi dòng máu đến não bị gián đoạn. Tại Việt Nam, các nghiên cứu chỉ ra rằng phần lớn bệnh nhân nhập viện ngoài "Thời gian vàng" do sự nhận thức hạn chế về các triệu chứng vận động lời nói và thiếu hụt công cụ sàng lọc tại chỗ.
 
-- **54 Biomarkers**: Trích xuất các chỉ số về Pitch Stability (Jitter), Amplitude Dynamics (Shimmer), Harmonic Structure (HNR/CPP), và Spectral Shape (MFCC).
-- **Hybrid AI Engine**: Sự kết hợp giữa Isolation Forest (phát hiện dị thường) và Random Forest (phân loại bệnh lý).
-- **Age-Based Calibration**: Tự động hiệu chuẩn ngưỡng cảnh báo theo độ tuổi để giảm thiểu tỷ lệ dương tính giả ở người cao tuổi.
-
----
-
-## ✨ Tính năng Chính
-
-- 🎙️ **Thu âm chuẩn hóa**: Quy trình 3 bước (Nguyên âm, Đếm số, Đọc câu) để thu thập dữ liệu âm học đa chiều.
-- 📊 **Phân tích thời gian thực**: Trực quan hóa phổ âm thanh và chỉ số rủi ro (SAI Score) ngay khi thu âm.
-- 📄 **Báo cáo Y khoa PDF**: Tự động xuất báo cáo chuyên nghiệp kèm biểu đồ Radar so sánh với chỉ số chuẩn.
-- ☁️ **Self-hosting Ready**: Được đóng gói toàn bộ vào Docker, dễ dàng triển khai lên máy chủ cá nhân hoặc VPS.
+### b. Cơ sở sinh lý học: Mối liên hệ giữa Thần kinh và Giọng nói (Bio-Acoustic Link)
+Sự phát âm là một quá trình tinh vi đòi hỏi sự phối hợp đồng bộ giữa hệ hô hấp, thanh quản và các bộ phận cấu âm. Khi xảy ra đột quỵ, sự biến thiên cực nhỏ trong mili-giây mà tai người không thể phân biệt nhưng các thuật toán xử lý tín hiệu số (DSP) có thể định lượng được thông qua các chỉ số như Jitter, Shimmer và MFCC.
 
 ---
 
-## 🛠️ Công nghệ Sử dụng
+## 2. THIẾT KẾ HỆ THỐNG VÀ PHƯƠNG PHÁP LUẬN
 
-### Frontend
-- **React 18 + Vite**: Giao diện Dashboard hiện đại, mượt mà.
-- **Tailwind CSS**: Thiết kế responsive, UI/UX chuẩn y khoa.
-- **Lucide Icons & Framer Motion**: Iconography và micro-animations cao cấp.
+### a. Quy trình trích xuất Đặc trưng Lâm sàng (Digital Biomarkers Pipeline)
+Kiến trúc hệ thống được xây dựng để xử lý dữ liệu theo tầng, đảm bảo tính toàn vẹn của tín hiệu từ khi ghi âm đến khi trích xuất 54 biomarkers chuyên sâu.
 
-### Backend
-- **FastAPI (Python 3.9)**: API hiệu năng cao với xử lý bất đồng bộ.
-- **Librosa & DSP**: Xử lý tín hiệu số và trích xuất đặc trưng âm học.
-- **Scikit-learn**: Vận hành mô hình Hybrid AI.
-- **ReportLab**: Tạo báo cáo PDF tự động.
+### b. Chi tiết 54 Chỉ số Sinh học Giọng nói (Unified Feature Vector)
+Hệ thống trích xuất một tập hợp tham số âm học đa chiều:
+- **Nhóm 1: Pitch & Frequency Stability** (Jitter, F0 Var...)
+- **Nhóm 2: Amplitude Stability** (Shimmer, APQ...)
+- **Nhóm 3: Harmonic Structure** (HNR, CPP...)
+- **Nhóm 4: Spectral Shape** (Spectral Centroid, MFCC 1-13...)
+- **Nhóm 5: Temporal Dynamics** (Speech Rate, Pause Ratio, VOT...)
+- **Nhóm 6: Voice Quality Indicators** (Formant F1-F3, Stability...)
+
+### c. Kiến trúc Hybrid AI Consensus Engine (SAI Architecture)
+Hệ thống sử dụng mô hình "Hội đồng AI" (Consensus Engine) kết hợp giữa:
+1. **Isolation Forest**: Học không giám sát để phát hiện các mẫu dị thường (Anomaly Detection).
+2. **Random Forest**: Học có giám sát để phân loại bệnh lý dựa trên 54 chiều đặc trưng.
 
 ---
 
-## 🚀 Hướng dẫn Cài đặt (Docker)
+## 3. THỰC HIỆN: CHẾ TẠO VÀ KIỂM TRA
 
-Để chạy dự án này trên máy tính của bạn, hãy đảm bảo bạn đã cài đặt **Docker** và **Docker Compose**.
+### a. Đặc tả kỹ thuật và Stack Công nghệ
+- **Backend**: FastAPI (Python 3.9), Librosa, Scikit-learn, ReportLab.
+- **Frontend**: React 18, Vite, Tailwind CSS, Recharts, Framer Motion.
+- **Infrastructure**: **Docker & Docker Compose** (Containerization).
 
-1. **Clone repository**:
-   ```bash
-   git clone <your-repo-url>
-   cd dotquy
-   ```
+### b. Hướng dẫn Cài đặt & Triển khai Docker
+Hệ thống đã được đóng gói toàn bộ vào Docker để dễ dàng triển khai trên mọi môi trường:
 
-2. **Chạy hệ thống**:
+1. **Khởi chạy hệ thống**:
    ```bash
    docker compose up --build
    ```
-
-3. **Truy cập**:
+2. **Truy cập**:
    - Giao diện người dùng: [http://localhost](http://localhost)
    - API Backend: [http://localhost:8000](http://localhost:8000)
 
----
-
-## 🌐 Tự Treo Host với Cloudflare Tunnel
-
-Hệ thống đã tích hợp sẵn **Cloudfare Tunnel**, giúp bạn có một link công khai cho mọi người sử dụng hoàn toàn miễn phí mà không cần mở port modem.
-
-1. Sau khi chạy `docker compose up`, hãy kiểm tra log của container `tunnel`:
+### c. Tự Treo Host với Cloudflare Tunnel
+Hệ thống tích hợp sẵn Cloudflared để tạo link công khai HTTPS miễn phí mà không cần mở port modem:
+1. Sau khi chạy Docker, kiểm tra log của container `tunnel`:
    ```bash
    docker compose logs -f tunnel
    ```
-2. Tìm dòng chữ có dạng: `https://your-unique-name.trycloudflare.com`.
-3. Chia sẻ đường link này cho mọi người. Bất kỳ ai cũng có thể truy cập hệ thống đang chạy trên máy của bạn thông qua link này với HTTPS bảo mật.
+2. Tìm link có dạng: `https://xxxx.trycloudflare.com`. Đây là link công khai của bạn.
+
+### d. Quy trình xử lý tín hiệu (Medical Signal Processing Pipeline)
+Mỗi tệp âm thanh trải qua quy trình 5 giai đoạn: Normalization -> Multi-stage Denoising -> Intelligent VAD -> Parallel Feature Extraction -> Consensus Scoring.
+
+### e. Hệ thống Báo cáo Y khoa Chuyên nghiệp (Automated A4 Clinical PDF)
+Hệ thống tự động hóa việc tạo báo cáo chuyên nghiệp mẫu A4 bao gồm phân tích Waveform, biểu đồ Radar Biomarkers, biểu đồ Z-Score và các nhận xét AI tự động.
 
 ---
 
-## 📁 Cấu trúc Dự án
+## 4. KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN CHIẾN LƯỢC
 
-```text
-.
-├── backend/            # FastAPI Backend & AI Logic
-├── frontend/           # React Dashboard
-├── docker-compose.yml  # Orchestration
-├── README.md           # Documentation
-└── .gitignore          # Git exclusion rules
-```
+Dự án giúp tăng tỷ lệ phát hiện sớm trong "Thời gian vàng" và giảm tải cho hệ thống y tế thông qua sàng lọc từ xa. Lộ trình tương lai bao gồm tích hợp **Multi-modal AI** (kết hợp giọng nói và hình ảnh khuôn mặt) để đạt độ chính xác lâm sàng >98%.
 
 ---
-
-## 👤 Tác giả
-
-**Nguyễn Duy Quang**  
-*Lĩnh vực: Biomedical AI & Healthcare Technology*  
-*Năm thực hiện: 2026*
-
----
-> [!NOTE]
-> Kết quả từ hệ thống này chỉ mang tính chất tầm soát sớm và tham khảo khoa học, không thay đổi các chẩn đoán y khoa chính thống từ bác sĩ chuyên môn.
+*Dự án tâm huyết được thực hiện bởi Nguyễn Duy Quang | Kế thừa và Phát triển trên nền tảng Công nghệ Xử lý Tín hiệu Y sinh 2026*
