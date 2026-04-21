@@ -20,17 +20,25 @@ import audio_processing
 # --- 0. Font Setup ---
 try:
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(base_dir, "fonts", "arial.ttf")
+    # Using DejaVuSans for UTF-8 Vietnamese character support
+    font_path = os.path.join(base_dir, "font", "DejaVuSans.ttf")
+    
     if not os.path.exists(font_path):
-        font_path = os.path.join(base_dir, "..", "fonts", "arial.ttf")
-    if not os.path.exists(font_path):
-        font_path = r"C:\Windows\Fonts\arial.ttf"
-
-    pdfmetrics.registerFont(TTFont('Arial', font_path))
-    FONT_NAME = 'Arial'
-    FONT_BOLD = 'Arial'
+         # Fallback search
+         font_path = os.path.join(base_dir, "fonts", "DejaVuSans.ttf")
+    
+    if os.path.exists(font_path):
+        pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
+        pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', font_path)) # Using same for simplicity or bold if exists
+        FONT_NAME = 'DejaVuSans'
+        FONT_BOLD = 'DejaVuSans-Bold'
+        print(f"DEBUG: Successfully Registered {FONT_NAME} from {font_path}")
+    else:
+        print(f"Warning: Could not find DejaVuSans.ttf at {font_path}")
+        FONT_NAME = 'Helvetica'
+        FONT_BOLD = 'Helvetica-Bold'
 except Exception as e:
-    print(f"Warning: Could not load Arial font ({e}). Using Helvetica.")
+    print(f"Warning: Could not setup fonts ({e}). Using Helvetica.")
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 

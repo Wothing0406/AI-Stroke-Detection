@@ -236,7 +236,7 @@ def analyze_risk(features_grouped: dict, age: int, ml_prob: float = 0.0, signal_
 
     return {
         "sai_score": round(sai_score, 1),
-        "confidence": round(float(2.0), 2), # Simplified confidence for demo
+        "confidence": round(float(min(0.98, 0.85 + signal_quality * 0.15)), 2), # Dynamic Based on Quality
         "group_scores": {k: round(v, 1) for k, v in g_risks.items()},
         "details": all_details,
         "biomarker_count": 54,

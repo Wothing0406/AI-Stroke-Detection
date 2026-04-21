@@ -461,7 +461,7 @@ async def analyze_audio(
 
         # Generate PDF report
         report_path = f"{REPORTS_DIR}/Report_{session_id}.pdf"
-        report_generator.generate_medical_report(patient_info, report_payload, temp_file_path, report_path, metrics=metrics)
+        report_generator.generate_medical_report(patient_info, report_payload, temp_file_path, report_path, metrics=quality_metrics_dict)
 
         # Zip Generation
         zip_filename = None
