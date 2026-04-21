@@ -16,6 +16,10 @@ from datetime import datetime
 import numpy as np
 import uuid
 from reportlab.pdfbase.pdfmetrics import registerFontFamily
+import audio_processing
+import logging
+
+logger = logging.getLogger(__name__)
 
 # --- 0. Font Setup ---
 try:
@@ -121,28 +125,34 @@ def create_waveform_plot(audio_path):
         buf.seek(0)
         plt.close(fig)
         return buf
-    except:
+    except Exception as e:
+        logger.error(f"Waveform plot failed: {e}")
         return None
 
 def create_radar_chart(details):
-    labels = []
-    values = []
-    key_metrics = ["jitter_local", "shimmer_local", "hnr", "speech_rate", "mean_f0"]
+    try:
+        labels = []
+        values = []
+        key_metrics = ["jitter_local", "shimmer_local", "hnr", "speech_rate", "mean_f0"]
+        
+        for key in key_metrics:
+            if key in details:
+                item = details[key]
+                deviation = item.get('deviation_level', 0.0)
+                norm_val = item.get('norm_val', min(deviation / 3.0, 1.0))
+                labels.append(key.upper())
+                values.append(norm_val)
+        
+        if not values or len(values) < 3: return None
+        values = np.concatenate((values, [values[0]]))
+        angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
+        angles = np.concatenate((angles, [angles[0]]))
     
-    for key in key_metrics:
-        if key in details:
-            item = details[key]
-            deviation = item.get('deviation_level', 0.0)
-            norm_val = item.get('norm_val', min(deviation / 3.0, 1.0))
-            labels.append(key.upper())
-            values.append(norm_val)
-    
-    if not values or len(values) < 3: return None
-    values = np.concatenate((values, [values[0]]))
-    angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
-    angles = np.concatenate((angles, [angles[0]]))
-
-    fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(polar=True))
+        fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(polar=True))
+        # ... rest of radar chart code ...
+    except Exception as e:
+        logger.error(f"Radar chart failed: {e}")
+        return None
     ax.fill(angles, values, color='red', alpha=0.25)
     ax.plot(angles, values, color='red', linewidth=2)
     ax.set_xticks(angles[:-1])
