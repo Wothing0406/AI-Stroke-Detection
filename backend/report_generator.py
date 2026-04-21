@@ -15,26 +15,37 @@ import os
 from datetime import datetime
 import numpy as np
 import uuid
-import audio_processing
+from reportlab.pdfbase.pdfmetrics import registerFontFamily
 
 # --- 0. Font Setup ---
 try:
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    # Using DejaVuSans for UTF-8 Vietnamese character support
-    font_path = os.path.join(base_dir, "font", "DejaVuSans.ttf")
     
-    if not os.path.exists(font_path):
-         # Fallback search
-         font_path = os.path.join(base_dir, "fonts", "DejaVuSans.ttf")
+    # Priority 1: System-level Arial (Perfect Vietnamese support on Windows)
+    font_normal = r"C:\Windows\Fonts\arial.ttf"
+    font_bold   = r"C:\Windows\Fonts\arialbd.ttf"
     
-    if os.path.exists(font_path):
-        pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
-        pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', font_path)) # Using same for simplicity or bold if exists
-        FONT_NAME = 'DejaVuSans'
-        FONT_BOLD = 'DejaVuSans-Bold'
-        print(f"DEBUG: Successfully Registered {FONT_NAME} from {font_path}")
+    # Priority 2: Project-level DejaVu (Fallback for Docker/Linux)
+    if not os.path.exists(font_normal):
+        font_normal = os.path.join(base_dir, "font", "DejaVuSans.ttf")
+        font_bold   = font_normal # Same file if no bold variant exists
+        
+    if os.path.exists(font_normal):
+        # Register the physical fonts
+        pdfmetrics.registerFont(TTFont('AppFont', font_normal))
+        if os.path.exists(font_bold) and font_bold != font_normal:
+            pdfmetrics.registerFont(TTFont('AppFont-Bold', font_bold))
+        else:
+            pdfmetrics.registerFont(TTFont('AppFont-Bold', font_normal))
+        
+        # Register the family so <b> tags work correctly
+        registerFontFamily('AppFont', normal='AppFont', bold='AppFont-Bold', italic='AppFont', boldItalic='AppFont-Bold')
+        
+        FONT_NAME = 'AppFont'
+        FONT_BOLD = 'AppFont-Bold'
+        print(f"DEBUG: Successfully Registered Font Family 'AppFont' using {font_normal}")
     else:
-        print(f"Warning: Could not find DejaVuSans.ttf at {font_path}")
+        print(f"Warning: No suitable fonts found, using Helvetica.")
         FONT_NAME = 'Helvetica'
         FONT_BOLD = 'Helvetica-Bold'
 except Exception as e:
