@@ -179,10 +179,22 @@ def detect_speech(y, sr):
     # Cast to float64 for intermediate calculation to avoid overflow and satisfy linter
     y_float = y.astype(np.float64)
     rms_total = np.sqrt(np.mean(y_float**2))
-    if rms_total < 0.01:
+    
+    # 1. Check for absolute silence / No signal
+    if rms_total < 0.005:
         return {
             "status": "INVALID",
-            "reason": "Âm lượng quá nhỏ (gần như im lặng). Vui lòng nói rõ hơn.",
+            "reason": "Không ghi nhận tín hiệu. Mời bạn nói vào mic.",
+            "speech_ratio": 0.0,
+            "energy": float(rms_total),
+            "duration": duration
+        }
+    
+    # 2. Check for low volume
+    if rms_total < 0.015:
+        return {
+            "status": "INVALID",
+            "reason": "Giọng nói còn nhỏ. Vui lòng nói to hoặc đặt mic gần miệng hơn.",
             "speech_ratio": 0.0,
             "energy": float(rms_total),
             "duration": duration
@@ -195,15 +207,15 @@ def detect_speech(y, sr):
     # Extract RMS for each frame
     rms_frames = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop_length)[0]
     
-    # Improved Threshold: Use median instead of max to avoid spike-induced rejection
-    energy_threshold = max(0.005, 0.5 * np.median(rms_frames) + 0.1 * np.mean(rms_frames))
+    # Improved Threshold: Use a floor of 0.01 to prevent noise from being counted as speech
+    energy_threshold = max(0.01, 0.5 * np.median(rms_frames) + 0.1 * np.mean(rms_frames))
     
     speech_frames = np.sum(rms_frames > energy_threshold)
     total_frames = len(rms_frames)
     speech_ratio = float(speech_frames / total_frames) if total_frames > 0 else 0.0
 
-    # Relaxed gate: 10% for noise-reduced signals (was 15%)
-    if speech_ratio < 0.10:
+    # Relaxed gate: 15% for noise-reduced signals (was 10%)
+    if speech_ratio < 0.15:
         return {
             "status": "INVALID",
             "reason": f"Chỉ thấy {speech_ratio*100:.0f}% là tiếng nói. Cần ít nhất 15% sau lọc nhiễu.",
@@ -217,8 +229,8 @@ def detect_speech(y, sr):
     cent = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
     cent_std = np.std(cent)
     
-    # Relaxed fan noise detection from 100.0 to 30.0 for home environments
-    if cent_std < 30.0:
+    # Strict fan noise detection: increased from 30.0 to 40.0
+    if cent_std < 40.0:
         return {
             "status": "INVALID",
             "reason": f"Phát hiện âm thanh nền liên tục/tiếng quạt (độ biến thiên tần số thấp: {cent_std:.0f}Hz). Không ghi nhận giọng nói thật.",
@@ -274,6 +286,9 @@ def validate_audio(y, sr, apply_focus=True):
 
     if speech_result["status"] == "INVALID":
         reasons.append(str(speech_result["reason"]))
+        # Reset metrics for invalid audio to avoid "good" defaults
+        metrics["snr"] = 0.0
+        metrics["vad_ratio"] = 0.0
         return False, reasons, metrics, y, focus_applied
 
     # 4. Advanced Quality Metrics (only if speech detected)
