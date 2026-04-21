@@ -70,23 +70,22 @@ def update_baseline(user_id, new_metrics):
     current_baseline = user.get("baseline_metrics", {})
     count = user.get("session_count", 0)
     
-    # Key metrics to track
-    keys = ["jitter", "shimmer", "hnr", "mfcc_mean"]
+    # Key metrics to track (Matching 54-biomarker set)
+    keys = ["jitter_local", "shimmer_local", "hnr", "mean_f0", "speech_rate", "rms_energy"]
     
     updated_baseline = {}
     
     for k in keys:
         if k in new_metrics:
             val = new_metrics[k]
-            # Handle list/array values (like mfcc) by taking mean if needed, though usually scalar here
             if isinstance(val, (list, np.ndarray)):
                 val = float(np.mean(val))
             
             old_val = current_baseline.get(k, val)
             
-            # Weighted update: 70% history, 30% new (if not first time)
+            # Weighted update: 80% history, 20% new (Smoother for clinical stability)
             if count > 0:
-                new_avg = (old_val * 0.7) + (val * 0.3)
+                new_avg = (old_val * 0.8) + (val * 0.2)
             else:
                 new_avg = val
                 
@@ -125,7 +124,7 @@ def get_comparison(user_id, current_metrics):
     Returns deviation percentages.
     """
     profile = get_profile(user_id)
-    if not profile or not profile.get("baseline_metrics"):
+    if not profile or not profile.get("baseline_metrics") or profile.get("session_count", 0) == 0:
         return None
     
     baseline = profile["baseline_metrics"]
@@ -137,21 +136,25 @@ def get_comparison(user_id, current_metrics):
             if base_val == 0: continue
             
             # Calculate % deviation
-            deviation = ((curr_val - base_val) / base_val) * 100
+            deviation = ((curr_val - base_val) / (base_val + 1e-9)) * 100
             comparison[k] = {
-                "baseline": base_val,
-                "current": curr_val,
-                "deviation_percent": deviation,
-                "is_worse": False # Logic depends on metric
+                "baseline": float(base_val),
+                "current": float(curr_val),
+                "deviation_percent": float(deviation),
+                "is_worse": False 
             }
             
             # Determine "Worse" direction
             # Jitter/Shimmer: Higher is worse
-            if k in ["jitter", "shimmer"] and deviation > 15: # 15% threshold
+            if k in ["jitter_local", "shimmer_local"] and deviation > 15: 
                 comparison[k]["is_worse"] = True
                 
             # HNR: Lower is worse
             if k == "hnr" and deviation < -15:
+                comparison[k]["is_worse"] = True
+            
+            # Speech Rate: significant change is notable
+            if k == "speech_rate" and abs(deviation) > 20: 
                 comparison[k]["is_worse"] = True
                 
     return comparison

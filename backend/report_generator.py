@@ -191,6 +191,12 @@ def generate_medical_report(patient_info, result, audio_path, output_path, metri
     )
     
     styles = getSampleStyleSheet()
+    # Update default styles to use Unicode font
+    for style_name in styles.byName:
+        styles[style_name].fontName = FONT_NAME
+        if hasattr(styles[style_name], 'boldFontName'):
+             styles[style_name].boldFontName = FONT_BOLD
+
     # Custom Styles
     styles.add(ParagraphStyle(name='CenterTitle', fontName=FONT_BOLD, fontSize=18, alignment=TA_CENTER, spaceAfter=10))
     styles.add(ParagraphStyle(name='CenterSub', fontName=FONT_NAME, fontSize=10, alignment=TA_CENTER, spaceAfter=20))

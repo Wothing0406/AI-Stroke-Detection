@@ -19,6 +19,8 @@ import risk_engine
 import schemas
 import uuid
 import traceback
+import hashlib
+import storage
 import time
 import logging
 import sys
@@ -420,6 +422,18 @@ async def analyze_audio(
         }
         metadata_obj = schemas.AnalysisMetadata(**metadata_dict)
 
+        # --- NEW: Automated Personal Learning (Baseline Tracking) ---
+        user_id = hashlib.md5(f"{name}_{dob}".encode()).hexdigest()
+        
+        # 1. Update/Create Profile
+        storage.create_or_update_profile(user_id, name, dob)
+        
+        # 2. Get history comparison (before updating with new data)
+        history_comp = storage.get_comparison(user_id, metrics)
+        
+        # 3. Update baseline with current results
+        storage.update_baseline(user_id, metrics)
+        
         # --- STEP 5: Prepare Result Payload ---
         patient_info = {
             "name": name, "age": final_age, "dob": dob,
@@ -451,7 +465,8 @@ async def analyze_audio(
             "patient_info": patient_info,
             "confidence_score": analysis_result["confidence"],
             "metadata": metadata_dict,
-            "ai_notice": "Kết quả này chỉ mang tính chất hỗ trợ tầm soát chuẩn khoa học."
+            "history_comparison": history_comp,
+            "ai_notice": "Hệ thống AI hiện đang tự động học hỏi từ chính giọng nói của bạn để đưa ra cảnh báo chính xác nhất."
         }
 
         # Prepare Spectral Data for Charting (downsampled to 100 points)

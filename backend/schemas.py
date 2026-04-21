@@ -48,4 +48,5 @@ class AnalysisResponse(BaseModel):
     report_url: str
     report_zip_url: Optional[str] = None
     spectral_data: List[Dict[str, Any]] = [] # Spectral waveform for charting
+    history_comparison: Optional[Dict[str, Any]] = None # Personal vocal trend
     ai_notice: str
