@@ -23,6 +23,7 @@ class AnalysisMetadata(BaseModel):
     normalization_method: str = "min_max_clinical"
     threshold_policy: str = "strict_consensus"
     dialect: str = "North" # Added for regional calibration
+    voice_focus_applied: bool = False # Indicates if dominant speaker focusing was used
     analysis_id: str
     timestamp: str
 

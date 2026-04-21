@@ -231,7 +231,7 @@ async def validate_audio_quick(file: UploadFile = File(...)):
                 "quality_metrics": {}
             })
         
-        is_valid, reasons, quality_metrics = audio_processing.validate_audio(y, sr)
+        is_valid, reasons, quality_metrics, _, focus_applied = audio_processing.validate_audio(y, sr)
         
         # Ensure quality_metrics is JSON serializable (convert numpy types)
         safe_metrics = {k: (float(v) if isinstance(v, (np.float32, np.float64)) else v) for k, v in quality_metrics.items()}
@@ -240,13 +240,15 @@ async def validate_audio_quick(file: UploadFile = File(...)):
             return JSONResponse(content={
                 "status": "VALID",
                 "reasons": [],
-                "quality_metrics": safe_metrics
+                "quality_metrics": safe_metrics,
+                "focus_applied": focus_applied
             })
         else:
             return JSONResponse(content={
                 "status": "INVALID",
                 "reasons": reasons,
-                "quality_metrics": safe_metrics
+                "quality_metrics": safe_metrics,
+                "focus_applied": focus_applied
             })
     except Exception as e:
         logger.error(f"Validation error: {e}")
@@ -337,7 +339,7 @@ async def analyze_audio(
             }, status_code=200)
 
         # --- STEP 2: Validate Audio (Strict) ---
-        is_valid, reasons, quality_metrics_dict = audio_processing.validate_audio(y, sr)
+        is_valid, reasons, quality_metrics_dict, y, focus_applied = audio_processing.validate_audio(y, sr)
         
         # Construct Safe Quality Metrics Object
         q_metrics = schemas.QualityMetrics(
@@ -412,6 +414,7 @@ async def analyze_audio(
             "normalization_method": "physiological_ranges",
             "threshold_policy": "dialect_aware_consensus",
             "dialect": dialect,
+            "voice_focus_applied": focus_applied,
             "analysis_id": session_id,
             "timestamp": datetime.now().isoformat()
         }

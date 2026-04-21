@@ -66,6 +66,10 @@ Hệ thống sử dụng mô hình "Hội đồng AI" (Consensus Engine) kết h
 ### b. Hướng dẫn Cài đặt & Triển khai Docker
 Hệ thống đã được đóng gói toàn bộ vào Docker để dễ dàng triển khai trên mọi môi trường:
 
+## 🚀 Hướng dẫn Cài đặt (Docker)
+
+Để chạy dự án này trên máy tính của bạn, hãy đảm bảo bạn đã cài đặt **Docker** và **Docker Compose**.
+
 1. **Khởi chạy hệ thống**:
    ```bash
    docker compose up --build

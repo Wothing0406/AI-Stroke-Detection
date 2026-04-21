@@ -235,10 +235,11 @@ def detect_speech(y, sr):
         "duration": duration
     }
 
-def validate_audio(y, sr):
+def validate_audio(y, sr, apply_focus=True):
     """
     Validate TECHNICAL audio quality and SPEECH PRESENCE.
-    Returns: (is_valid, list of reasons, metrics dictionary)
+    Now optionally applies dominant speaker focusing.
+    Returns: (is_valid, list of reasons, metrics dictionary, processed_y, focus_applied)
     """
     reasons = []
     metrics = {
@@ -252,12 +253,20 @@ def validate_audio(y, sr):
     }
 
     if y is None or len(y) == 0:
-        return False, ["Dữ liệu âm thanh trống"], metrics
+        return False, ["Dữ liệu âm thanh trống"], metrics, y, False
 
     # 1. Scientific Noise Reduction (Adaptive)
     y = reduce_noise_spectral_subtraction(y, sr)
     
-    # 2. Run strict speech detection
+    # 2. NEW: Intelligent Voice Focus (Dominant Speaker)
+    focus_applied = False
+    if apply_focus:
+        y, filtered_count = focus_dominant_speaker(y, sr)
+        if filtered_count > 0:
+            focus_applied = True
+            logger.info(f"Voice Focus: Isolated dominant speaker, filtered {filtered_count} background segments.")
+
+    # 3. Run strict speech detection
     speech_result = detect_speech(y, sr)
     metrics["duration"] = float(speech_result["duration"])
     metrics["vad_ratio"] = float(speech_result["speech_ratio"])
@@ -265,16 +274,15 @@ def validate_audio(y, sr):
 
     if speech_result["status"] == "INVALID":
         reasons.append(str(speech_result["reason"]))
-        return False, reasons, metrics
+        return False, reasons, metrics, y, focus_applied
 
-    # 2. Advanced Quality Metrics (only if speech detected)
+    # 4. Advanced Quality Metrics (only if speech detected)
     # SNR Calc based on VAD frames (Optimized for noise-reduced signals)
-    # Using 40dB top_db for better sensitivity
     non_silent_intervals = librosa.effects.split(y, top_db=40)
     snr = 0
     if len(non_silent_intervals) > 0:
         speech_parts = np.concatenate([y[s:e] for s, e in non_silent_intervals])
-        signal_power = np.mean(speech_parts**2)
+        signal_power = np.mean(speech_parts.astype(np.float64)**2)
         
         mask = np.ones(len(y), dtype=bool)
         for s, e in non_silent_intervals:
@@ -282,11 +290,9 @@ def validate_audio(y, sr):
         noise_parts = y[mask]
         
         if len(noise_parts) > 0:
-            noise_power = np.mean(noise_parts**2)
-            # Add tiny epsilon to noise power to prevent log errors
+            noise_power = np.mean(noise_parts.astype(np.float64)**2)
             noise_power = max(noise_power, 1e-10) 
             snr = 10 * np.log10(signal_power / noise_power)
-            # Clamp SNR to 0-40 range for clinical display
             snr = max(0.0, min(40.0, float(snr)))
         else:
             snr = 35.0 # Extremely clean
@@ -294,21 +300,21 @@ def validate_audio(y, sr):
         snr = 0.0
         
     metrics["snr"] = float(snr)
-    # Extremely relaxed SNR rejection: 1.0dB after denoising
+    # Extremely relaxed SNR rejection: 1.0dB after denoising & focus
     if snr < 1.0:
         reasons.append(f"Tín hiệu quá yếu hoặc quá nhiễu (SNR={snr:.1f}dB).")
 
-    # 3. Clipping check
+    # 5. Clipping check
     clipping_count = np.sum(np.abs(y) > 0.98)
     metrics["clipping_ratio"] = float(clipping_count / len(y))
     if metrics["clipping_ratio"] > 0.05:
          reasons.append("Âm thanh bị rè (clipping > 5%). Hạ âm lượng mic.")
 
-    # 4. Clinical Metrics (Pitch Confidence) -> Never used to reject!
+    # 6. Clinical Metrics (Pitch Confidence)
     if float(metrics["duration"]) >= 3.0: 
         metrics["pitch_confidence"] = float(estimate_pitch_confidence(y, sr))
     
-    # 5. Assign Tier based on TECHNICAL quality 
+    # 7. Assign Tier based on TECHNICAL quality 
     if len(reasons) == 0:
         if snr > 15 and float(metrics["vad_ratio"]) > 0.5:
              metrics["tier"] = "HIGH"
@@ -319,22 +325,64 @@ def validate_audio(y, sr):
     else:
         metrics["tier"] = "INVALID"
 
-    return (len(reasons) == 0), reasons, metrics
+    return (len(reasons) == 0), reasons, metrics, y, focus_applied
 
-def isolate_loudest_voice(y, sr, top_db=20):
+def focus_dominant_speaker(y, sr, threshold_db=15.0):
     """
-    Isolate the loudest parts of the audio (voice) and trim silence/background.
-    top_db: The threshold (in decibels) below reference to consider as silence.
+    Intelligent Voice Focus: Identifies segments belonging to the dominant speaker 
+    (assumed to be the loudest/closest to mic) and attenuates background voices or 
+    secondary sounds. Preserves original timing to maintain Temporal Dynamics.
     """
-    # 1. Split into non-silent intervals
-    intervals = librosa.effects.split(y, top_db=top_db)
+    if y is None or len(y) == 0: 
+        return y, 0
     
-    if len(intervals) == 0:
-        return y # Return original if nothing found (validation will catch it)
+    # 1. Identify speech segments using 30dB VAD threshold
+    intervals = librosa.effects.split(y, top_db=30)
+    if len(intervals) == 0: 
+        return y, 0
+    
+    # 2. Calculate RMS energy for each recognized speech segment
+    segment_energies = []
+    for s, e in intervals:
+        segment = y[s:e]
+        rms = np.sqrt(np.mean(segment.astype(np.float64)**2))
+        segment_energies.append(rms)
+    
+    peak_energy = np.max(segment_energies)
+    if peak_energy < 1e-7: 
+        return y, 0
+    
+    peak_db = 20 * np.log10(peak_energy)
+    focus_limit_db = peak_db - threshold_db
+    
+    # 3. Construct a gain mask to filter background voices
+    # We maintain the signal timeline but zero out segments below the focus threshold
+    focused_y = np.zeros_like(y)
+    filtered_segments = 0
+    
+    # Transition length (10ms) to prevent digital popping/clipping artifacts
+    fade_len = int(0.01 * sr) 
+    
+    for i, (s, e) in enumerate(intervals):
+        seg_db = 20 * np.log10(segment_energies[i] + 1e-9)
         
-    # 2. Concatenate only the loud parts
-    y_loud = np.concatenate([y[start:end] for start, end in intervals])
-    return y_loud
+        if seg_db >= focus_limit_db:
+            # Keep dominant segment
+            focused_y[s:e] = y[s:e]
+            
+            # Apply fades at segment boundaries
+            if (e - s) > 2 * fade_len:
+                fade_in = np.linspace(0, 1, fade_len)
+                fade_out = np.linspace(1, 0, fade_len)
+                # Note: y[s:e] is already there, we multiply by fade for the overlap
+                focused_y[s : s + fade_len] *= fade_in
+                focused_y[e - fade_len : e] *= fade_out
+        else:
+            # Secondary voice detected - Filter it out
+            filtered_segments += 1
+            # Signal remains zeroed in focused_y
+            
+    return focused_y, filtered_segments
 
 
 def normalize_audio(y):
